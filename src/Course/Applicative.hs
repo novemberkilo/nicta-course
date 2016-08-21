@@ -62,7 +62,7 @@ infixl 4 <*>
   -> f a
   -> f b
 (<$>) =
-  error "todo: Course.Applicative#(<$>)"
+  (<*>) . pure
 
 -- | Insert into Id.
 --
@@ -75,13 +75,13 @@ instance Applicative Id where
     a
     -> Id a
   pure =
-    error "todo: Course.Applicative pure#instance Id"
-  (<*>) :: 
+    Id
+  (<*>) ::
     Id (a -> b)
     -> Id a
     -> Id b
-  (<*>) =
-    error "todo: Course.Applicative (<*>)#instance Id"
+  (<*>) (Id f) (Id a') =
+    Id (f a')
 
 -- | Insert into a List.
 --
@@ -94,13 +94,13 @@ instance Applicative List where
     a
     -> List a
   pure =
-    error "todo: Course.Applicative pure#instance List"
+    (:. Nil)
   (<*>) ::
     List (a -> b)
     -> List a
     -> List b
-  (<*>) =
-    error "todo: Course.Apply (<*>)#instance List"
+  f <*> l =
+    flatMap (`map` l) f
 
 -- | Insert into an Optional.
 --
@@ -119,13 +119,13 @@ instance Applicative Optional where
     a
     -> Optional a
   pure =
-    error "todo: Course.Applicative pure#instance Optional"
+    Full
   (<*>) ::
     Optional (a -> b)
     -> Optional a
     -> Optional b
   (<*>) =
-    error "todo: Course.Apply (<*>)#instance Optional"
+    applyOptional
 
 -- | Insert into a constant function.
 --
@@ -150,13 +150,13 @@ instance Applicative ((->) t) where
     a
     -> ((->) t a)
   pure =
-    error "todo: Course.Applicative pure#((->) t)"
+    const
   (<*>) ::
     ((->) t (a -> b))
     -> ((->) t a)
     -> ((->) t b)
-  (<*>) =
-    error "todo: Course.Apply (<*>)#instance ((->) t)"
+  (f <*> g) t =
+   f t (g t)
 
 
 -- | Apply a binary function in the environment.

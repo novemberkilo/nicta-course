@@ -75,10 +75,8 @@ headOr ::
   a
   -> List a
   -> a
-headOr x l =
-  case l of
-    Nil -> x
-    (h :. _) -> h
+headOr =
+  foldRight const
 
 -- | The product of the elements of a list.
 --
@@ -90,10 +88,8 @@ headOr x l =
 product ::
   List Int
   -> Int
-product l =
-  case l of
-    Nil -> 1
-    (h :. t) -> h * product t
+product =
+  foldRight (*) 1
 
 -- | Sum the elements of the list.
 --
@@ -107,10 +103,8 @@ product l =
 sum ::
   List Int
   -> Int
-sum l =
-  case l of
-    Nil -> 0
-    (h :. t) -> h + sum t
+sum =
+  foldRight (+) 0
 
 -- | Return the length of the list.
 --
@@ -121,9 +115,8 @@ sum l =
 length ::
   List a
   -> Int
-length Nil = 0
-length (_ :. t) =
-  1 + length t
+length =
+  foldRight ((+) . const 1) 0
 
 -- | Map the given function on each element of the list.
 --
@@ -137,8 +130,6 @@ map ::
   (a -> b)
   -> List a
   -> List b
---map _ Nil = Nil
---map f (h :. t) = (f h) :. (map f t)
 map f = foldRight ((:.) . f) Nil
 
 -- | Return elements satisfying the given predicate.
@@ -155,13 +146,8 @@ filter ::
   (a -> Bool)
   -> List a
   -> List a
-filter _ Nil = Nil
-filter f (h :. t) =
-  if (f h)
-  then (h :. l)
-  else l
-  where l = filter f t
-
+filter f =
+  foldRight (\x y -> if (f x) then x :. y else y) Nil
 
 -- | Append two lists to a new list.
 --
@@ -179,11 +165,8 @@ filter f (h :. t) =
   List a
   -> List a
   -> List a
-(++) Nil l = l
-(++) l Nil = l
-(++) (h :. t) l =
-  (h :. ((++) t l))
-
+(++) l l' =
+  foldRight (:.) l' l
 
 infixr 5 ++
 
@@ -200,9 +183,8 @@ infixr 5 ++
 flatten ::
   List (List a)
   -> List a
-flatten Nil = Nil
-flatten (h :. t) =
-  (++) h (flatten t)
+flatten =
+  foldRight (++) Nil
 
 -- | Map a function then flatten to a list.
 --
@@ -218,8 +200,8 @@ flatMap ::
   (a -> List b)
   -> List a
   -> List b
-flatMap f l =
-  flatten (map f l)
+flatMap f =
+  foldRight ((++) . f) Nil
 
 
 -- | Flatten a list of lists to a list (again).
@@ -257,20 +239,9 @@ flattenAgain =
 seqOptional ::
   List (Optional a)
   -> Optional (List a)
-seqOptional Nil = Full Nil
-seqOptional (Empty :. _) = Empty
-seqOptional (h :. t) =
-  if empty (seqOptional t)
-  then Empty
-  else Full l'
-  where
-    empty :: Optional a -> Bool
-    empty Empty = True
-    empty _ = False
-    extract :: Optional a -> (List a)
-    extract Empty = Nil
-    extract (Full x) = (x :. Nil)
-    l' = flatMap extract (h :. t)
+seqOptional =
+-- this hurt my brain a lot. Mostly following the types in Optional
+  foldRight (twiceOptional (:.)) (Full Nil)
 
 
 -- | Find the first element in the list matching the predicate.
@@ -293,11 +264,14 @@ find ::
   (a -> Bool)
   -> List a
   -> Optional a
-find _ Nil = Empty
-find f (h :. t) =
-  if (f h)
-  then Full h
-  else find f t
+find f l =
+  headOr Empty (foldRight (\x y -> if (f x) then (Full x) :. y else y) Nil l)
+
+-- find _ Nil = Empty
+-- find f (h :. t) =
+--   if (f h)
+--   then Full h
+--   else find f t
 
 
 -- | Determine if the length of the given list is greater than 4.
@@ -316,12 +290,8 @@ find f (h :. t) =
 lengthGT4 ::
   List a
   -> Bool
-lengthGT4 Nil = False
-lengthGT4 (_ :. Nil) = False
-lengthGT4 (_ :. _ :. Nil) = False
-lengthGT4 (_ :. _ :. _ :. Nil) = False
-lengthGT4 (_ :. _ :. _ :. _ :. Nil) = False
-lengthGT4 _ = True
+lengthGT4 =
+  not . isEmpty . drop 4
 
 -- | Reverse a list.
 --
@@ -354,6 +324,23 @@ produce ::
 produce f x =
   x :. produce f (f x)
 
+drop' :: (Num n, Ord n) =>
+  n
+  -> List a
+  -> List a
+drop' n l =
+  let
+    l' = zip (produce (\x -> x-1) n) l
+  in
+    foldRight (\(i,x) xs -> if (i > 0) then xs else (x :. xs)) Nil l'
+
+zip' :: List a -> List b -> List (a, b)
+zip' =
+  foldRight step (const Nil)
+  where
+    step :: a -> (List b -> List (a,b)) -> List b -> List (a,b)
+    step _ _ Nil = Nil
+    step a' f (b' :. bs) = ((a',b') :. f bs)
 
 -- | Do anything other than reverse a list.
 -- Is it even possible?
