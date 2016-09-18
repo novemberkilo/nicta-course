@@ -184,8 +184,8 @@ lift2 ::
   -> f a
   -> f b
   -> f c
-lift2 =
-  error "todo: Course.Applicative#lift2"
+lift2 f a b =
+  f <$> a <*> b
 
 -- | Apply a ternary function in the environment.
 --
@@ -216,8 +216,8 @@ lift3 ::
   -> f b
   -> f c
   -> f d
-lift3 =
-  error "todo: Course.Applicative#lift3"
+lift3 f a b c =
+  f <$> a <*> b <*> c
 
 -- | Apply a quaternary function in the environment.
 --
@@ -249,8 +249,8 @@ lift4 ::
   -> f c
   -> f d
   -> f e
-lift4 =
-  error "todo: Course.Applicative#lift4"
+lift4 f a b c d =
+  f <$> a <*> b <*> c <*> d
 
 -- | Apply, discarding the value of the first argument.
 -- Pronounced, right apply.
@@ -276,7 +276,11 @@ lift4 =
   -> f b
   -> f b
 (*>) =
-  error "todo: Course.Applicative#(*>)"
+  let
+    g :: a -> b -> b
+    g _ b = b
+  in
+    lift2 g
 
 -- | Apply, discarding the value of the second argument.
 -- Pronounced, left apply.
@@ -302,7 +306,11 @@ lift4 =
   -> f a
   -> f b
 (<*) =
-  error "todo: Course.Applicative#(<*)"
+  let
+    g :: a -> b -> a
+    g a _ = a
+   in
+    lift2 g
 
 -- | Sequences a list of structures to a structure of list.
 --
@@ -325,7 +333,11 @@ sequence ::
   List (f a)
   -> f (List a)
 sequence =
-  error "todo: Course.Applicative#sequence"
+  let
+    x :: Applicative f => f (List a)
+    x = pure Nil
+  in
+   foldRight (lift2 (:.)) x
 
 -- | Replicate an effect a given number of times.
 --
@@ -348,8 +360,10 @@ replicateA ::
   Int
   -> f a
   -> f (List a)
-replicateA =
-  error "todo: Course.Applicative#replicateA"
+replicateA n =
+  -- got this wrong initially
+  -- started with lift2 replicate . pure
+  sequence . replicate n
 
 -- | Filter a list with a predicate that produces an effect.
 --
@@ -361,7 +375,7 @@ replicateA =
 --
 -- >>> filtering (\a -> if a > 13 then Empty else Full (a <= 7)) (4 :. 5 :. 6 :. 7 :. 8 :. 9 :. Nil)
 -- Full [4,5,6,7]
---
+
 -- >>> filtering (\a -> if a > 13 then Empty else Full (a <= 7)) (4 :. 5 :. 6 :. 13 :. 14 :. Nil)
 -- Empty
 --
@@ -371,13 +385,28 @@ replicateA =
 -- >>> filtering (const $ True :. True :.  Nil) (1 :. 2 :. 3 :. Nil)
 -- [[1,2,3],[1,2,3],[1,2,3],[1,2,3],[1,2,3],[1,2,3],[1,2,3],[1,2,3]]
 --
+
+filtering' ::
+  (Eq (f Bool), Applicative f) =>
+  (a -> f Bool)
+  -> List a
+  -> f (List a)
+filtering' f' l =
+-- didn't get this without adding (Eq (f Bool)) to the function signature
+  sequence $ foldRight (\x y ->
+                          if ((f' x) == (pure True))
+                          then (pure x) :. y
+                          else y) Nil l
+
 filtering ::
   Applicative f =>
   (a -> f Bool)
   -> List a
   -> f (List a)
-filtering =
-  error "todo: Course.Applicative#filtering"
+filtering p =
+  -- from the solutions
+  -- qn for MH - how do you arrive at this?!
+  foldRight (\a -> lift2 (\b -> if b then (a:.) else id) (p a)) (pure Nil)
 
 -----------------------
 -- SUPPORT LIBRARIES --
